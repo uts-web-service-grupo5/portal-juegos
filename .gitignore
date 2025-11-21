@@ -5,7 +5,7 @@ env/
 # Python
 __pycache__/
 *.pyc
-
+app/main.py
 # IDEs
 .vscode/
 .idea/

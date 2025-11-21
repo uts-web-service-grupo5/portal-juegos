@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from app.config.routers import ROUTERS
 
 app = FastAPI(
-    title="User API",
+    title="Portal de juegos",
     description="API con arquitectura en capas",
     version="1.0.0",
 )
