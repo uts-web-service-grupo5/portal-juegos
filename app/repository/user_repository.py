@@ -30,3 +30,13 @@ class UserRepository:
 
     def get_all_users(self) -> list[UserDB]:
         return self.db.query(UserDB).all()
+
+    def update_user(self, user_id: int, updates: dict) -> UserDB:
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return None
+        for key, value in updates.items():
+            setattr(user, key, value)
+        self.db.commit()
+        self.db.refresh(user)
+        return user

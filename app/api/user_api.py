@@ -7,10 +7,13 @@ from app.domain.user_model import (
     LoginRequest,
     LoginResponse,
     RegistroResponse,
+    UpdateRequest,
+    UpdateResponse,
     UserCreate,
     UserRecord,
 )
 from app.service.user_service import UserService
+from fastapi import Header
 
 router = APIRouter(prefix="/api/v1/cliente", tags=["Clientes"])
 
@@ -81,6 +84,49 @@ def iniciar_sesion(credentials: LoginRequest, db: Session = Depends(get_db)):
                 "data": {},
                 "success": False,
                 "error_code": 403,
+                "details": {"description": descripcion},
+            },
+        )
+
+
+@router.patch(
+    "/actualizar",
+    response_model=UpdateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Actualizar datos de cliente",
+)
+def actualizar_cliente(
+    payload: UpdateRequest,
+    authorization: str | None = Header(default=None, convert_underscores=False),
+    db: Session = Depends(get_db),
+):
+    """Actualiza datos de cliente."""
+    service = UserService(db)
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token requerido")
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        user_id = service.decode_token(token)
+        return service.update_user(user_id, payload)
+    except HTTPException as exc:
+        descripcion = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        message = (
+            "No se pudo actualizar el/los campo(s)"
+            if exc.status_code in {status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN}
+            else "No se pudo procesar la solicitud"
+        )
+        error_code = (
+            403
+            if exc.status_code == status.HTTP_403_FORBIDDEN
+            else exc.status_code if exc.status_code != status.HTTP_503_SERVICE_UNAVAILABLE else 503
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "message": message,
+                "data": {},
+                "success": False,
+                "error_code": error_code,
                 "details": {"description": descripcion},
             },
         )
