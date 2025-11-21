@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Date, Integer, String, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = "sqlite:///./users.db"
@@ -13,9 +13,12 @@ class UserDB(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    age = Column(Integer)
+    nombre = Column(String, nullable=False)
+    nickname = Column(String, nullable=False)
+    correo = Column(String, unique=True, nullable=False, index=True)
+    contrasenia = Column(String, nullable=False)
+    fecha_nac = Column(Date, nullable=False)
+    suscripcion = Column(Integer, nullable=False)
 
 
 Base.metadata.create_all(bind=engine)
