@@ -1,20 +1,32 @@
-from datetime import date
+import os
+from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.domain.user_model import LoginRequest, LoginResponse, RegistroResponse, UserCreate, UserRecord
+from app.domain.user_model import (
+    LoginRequest,
+    LoginResponse,
+    RegistroResponse,
+    UpdateRequest,
+    UpdateResponse,
+    UserCreate,
+    UserRecord,
+)
 from app.repository.user_repository import UserRepository
 from passlib.hash import bcrypt_sha256
+from jose import JWTError, jwt
 
 
 class UserService:
     def __init__(self, db: Session):
         self.repository = UserRepository(db)
+        self.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
+        self.algorithm = "HS256"
+        self.access_token_exp_minutes = 60
 
     def _hash_password(self, raw_password: str) -> str:
-        
         return bcrypt_sha256.hash(raw_password)
 
     def _is_adult(self, birthday: date) -> bool:
@@ -70,9 +82,58 @@ class UserService:
                 detail="Alguno de los parámetros de inicio de sesión es incorrecto o el usuario no se ha registrado",
             )
 
+        return self.issue_token_response(user.id, user.correo)
+
+    def _create_access_token(self, user_id: int) -> str:
+        expire = datetime.utcnow() + timedelta(minutes=self.access_token_exp_minutes)
+        payload = {"sub": str(user_id), "exp": expire}
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+
+    def update_user(self, user_id: int, payload: UpdateRequest) -> UpdateResponse:
+        user = self.repository.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        updates = {}
+        if payload.nombre is not None:
+            updates["nombre"] = payload.nombre
+        if payload.nickname is not None:
+            updates["nickname"] = payload.nickname
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No se especificaron campos para actualizar")
+
+        try:
+            updated = self.repository.update_user(user_id, updates)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=503,
+                detail="No fue posible completar la actualización, por indisponibilidad del backend",
+            )
+
+        return UpdateResponse(
+            message="Solicitud de actualización de datos del cliente",
+            data={key: getattr(updated, key) for key in updates.keys()},
+            success=True,
+            error_code=None,
+            details=None,
+        )
+
+    def decode_token(self, token: str) -> int:
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            user_id = payload.get("sub")
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="Token inválido")
+            return int(user_id)
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+    def issue_token_response(self, user_id: int, correo: str) -> LoginResponse:
+        token = self._create_access_token(user_id)
         return LoginResponse(
             message="Datos recibidos",
-            data={"correo": user.correo},
+            data={"token": token, "correo": correo},
             success=True,
             error_code=None,
             details=None,

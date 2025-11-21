@@ -37,6 +37,19 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     message: str
+    data: dict  # Contiene token y/o correo
+    success: bool
+    error_code: int | None = None
+    details: dict | None = None
+
+
+class UpdateRequest(BaseModel):
+    nombre: str | None = None
+    nickname: str | None = None
+
+
+class UpdateResponse(BaseModel):
+    message: str
     data: dict
     success: bool
     error_code: int | None = None
