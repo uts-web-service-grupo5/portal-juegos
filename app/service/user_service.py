@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.domain.user_model import RegistroResponse, UserCreate, UserRecord
+from app.domain.user_model import LoginRequest, LoginResponse, RegistroResponse, UserCreate, UserRecord
 from app.repository.user_repository import UserRepository
 from passlib.hash import bcrypt_sha256
 
@@ -55,3 +55,25 @@ class UserService:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
         return UserRecord.from_orm(user)
+
+    def login(self, credentials: LoginRequest) -> LoginResponse:
+        user = self.repository.get_user_by_email(credentials.correo)
+        if not user:
+            raise HTTPException(
+                status_code=400,
+                detail="Alguno de los parámetros de inicio de sesión es incorrecto o el usuario no se ha registrado",
+            )
+
+        if not bcrypt_sha256.verify(credentials.contrasenia, user.contrasenia):
+            raise HTTPException(
+                status_code=400,
+                detail="Alguno de los parámetros de inicio de sesión es incorrecto o el usuario no se ha registrado",
+            )
+
+        return LoginResponse(
+            message="Datos recibidos",
+            data={"correo": user.correo},
+            success=True,
+            error_code=None,
+            details=None,
+        )
