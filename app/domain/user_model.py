@@ -54,3 +54,16 @@ class UpdateResponse(BaseModel):
     success: bool
     error_code: int | None = None
     details: dict | None = None
+
+
+class DeleteRequest(BaseModel):
+    id_cliente: int = Field(..., gt=0)
+    contrasenia: str = Field(..., min_length=6)
+
+
+class DeleteResponse(BaseModel):
+    message: str
+    data: dict
+    success: bool
+    error_code: int | None = None
+    details: dict | None = None
