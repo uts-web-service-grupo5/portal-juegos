@@ -28,3 +28,16 @@ class RegistroResponse(BaseModel):
     success: bool
     error_code: int | None = None
     details: dict | None = None
+
+
+class LoginRequest(BaseModel):
+    correo: EmailStr
+    contrasenia: str = Field(..., min_length=6)
+
+
+class LoginResponse(BaseModel):
+    message: str
+    data: dict
+    success: bool
+    error_code: int | None = None
+    details: dict | None = None
