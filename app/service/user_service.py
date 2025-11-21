@@ -9,6 +9,8 @@ from app.domain.user_model import (
     LoginRequest,
     LoginResponse,
     RegistroResponse,
+    DeleteRequest,
+    DeleteResponse,
     UpdateRequest,
     UpdateResponse,
     UserCreate,
@@ -134,6 +136,49 @@ class UserService:
         return LoginResponse(
             message="Datos recibidos",
             data={"token": token, "correo": correo},
+            success=True,
+            error_code=None,
+            details=None,
+        )
+
+    def _has_active_subscription(self, user_id: int) -> bool:
+        # Placeholder para integración futura con API de Suscripciones.
+        # Aquí se llamaría a GET /api/v1/suscripciones/verificacion/{id_cliente}
+        # Por ahora devolvemos False (sin plan activo) para permitir pruebas internas.
+        return False
+
+    def delete_user(self, user_id: int, payload: DeleteRequest) -> DeleteResponse:
+        user = self.repository.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # Verificar que quien solicita coincide con el id del token y del payload.
+        if user.id != payload.id_cliente:
+            raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
+
+        if not bcrypt_sha256.verify(payload.contrasenia, user.contrasenia):
+            raise HTTPException(status_code=401, detail="La contraseña no es válida.")
+
+        if self._has_active_subscription(user.id):
+            raise HTTPException(
+                status_code=403,
+                detail="El usuario mantiene un plan activo y no puede eliminar su cuenta.",
+            )
+
+        try:
+            deleted = self.repository.delete_user(user.id)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=503,
+                detail="No fue posible completar la eliminación por indisponibilidad del backend.",
+            )
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        return DeleteResponse(
+            message="Solicitud de eliminación procesada",
+            data={"id_cliente": user.id},
             success=True,
             error_code=None,
             details=None,
