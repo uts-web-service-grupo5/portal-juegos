@@ -100,7 +100,17 @@ class UserService:
         if payload.nombre is not None:
             updates["nombre"] = payload.nombre
         if payload.nickname is not None:
+            # validar nickname único
+            existing = self.repository.get_user_by_nickname(payload.nickname)
+            if existing and existing.id != user.id:
+                raise HTTPException(status_code=400, detail="Nickname en uso por otro usuario")
             updates["nickname"] = payload.nickname
+        if payload.correo is not None:
+            # validar correo único
+            existing_email = self.repository.get_user_by_email(payload.correo)
+            if existing_email and existing_email.id != user.id:
+                raise HTTPException(status_code=400, detail="Correo en uso por otro usuario")
+            updates["correo"] = payload.correo
 
         if not updates:
             raise HTTPException(status_code=400, detail="No se especificaron campos para actualizar")
@@ -113,9 +123,53 @@ class UserService:
                 detail="No fue posible completar la actualización, por indisponibilidad del backend",
             )
 
+        # Construir respuesta con formato esperado por la HU
+        response_data = {
+            "id_cliente": updated.id,
+            "nombre": updated.nombre,
+            "nickname": updated.nickname,
+            "correo": updated.correo,
+        }
+
         return UpdateResponse(
-            message="Solicitud de actualización de datos del cliente",
-            data={key: getattr(updated, key) for key in updates.keys()},
+            message="Actualización ejecutada de forma exitosa",
+            data=response_data,
+            success=True,
+            error_code=None,
+            details=None,
+        )
+
+    def delete_user_admin(self, user_id: int) -> DeleteResponse:
+        user = self.repository.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        try:
+            has_plan = self._has_active_subscription(user.id)
+        except HTTPException:
+            # Propagar errores de conexión a la API de suscripciones
+            raise
+
+        if has_plan:
+            raise HTTPException(
+                status_code=400,
+                detail="El usuario tiene una suscripción activa. Debe cancelar la suscripción antes de eliminar la cuenta.",
+            )
+
+        try:
+            deleted = self.repository.delete_user(user.id)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=503,
+                detail="No fue posible completar la eliminación por indisponibilidad del backend.",
+            )
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        return DeleteResponse(
+            message="Usuario eliminado exitosamente",
+            data={},
             success=True,
             error_code=None,
             details=None,
@@ -142,10 +196,22 @@ class UserService:
         )
 
     def _has_active_subscription(self, user_id: int) -> bool:
-        # Placeholder para integración futura con API de Suscripciones.
-        # Aquí se llamaría a GET /api/v1/suscripciones/verificacion/{id_cliente}
-        # Por ahora devolvemos False (sin plan activo) para permitir pruebas internas.
-        return False
+        """
+        Verifica si el usuario tiene una suscripción activa.
+        
+        Suscripción activa = planes Plata (2) u Oro (3)
+        Suscripción inactiva = plan Bronce/Gratuito (1)
+        
+        En una integración real, esto llamaría a:
+        GET /api/v1/suscripciones/verificacion/{id_cliente}
+        """
+        user = self.repository.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        # Planes activos: Plata (2) y Oro (3)
+        # Plan gratuito: Bronce (1)
+        return user.suscripcion > 1
 
     def delete_user(self, user_id: int, payload: DeleteRequest) -> DeleteResponse:
         user = self.repository.get_user_by_id(user_id)

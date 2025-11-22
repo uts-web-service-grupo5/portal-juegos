@@ -46,6 +46,7 @@ class LoginResponse(BaseModel):
 class UpdateRequest(BaseModel):
     nombre: str | None = None
     nickname: str | None = None
+    correo: EmailStr | None = None
 
 
 class UpdateResponse(BaseModel):
