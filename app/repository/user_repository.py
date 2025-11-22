@@ -28,6 +28,9 @@ class UserRepository:
     def get_user_by_email(self, email: str) -> UserDB | None:
         return self.db.query(UserDB).filter(UserDB.correo == email).first()
 
+    def get_user_by_nickname(self, nickname: str) -> UserDB | None:
+        return self.db.query(UserDB).filter(UserDB.nickname == nickname).first()
+
     def get_all_users(self) -> list[UserDB]:
         return self.db.query(UserDB).all()
 
