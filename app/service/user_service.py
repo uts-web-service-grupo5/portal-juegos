@@ -17,6 +17,7 @@ from app.domain.user_model import (
     UserRecord,
 )
 from app.repository.user_repository import UserRepository
+from app.repository.subscription_repository import SubscriptionRepository
 from passlib.hash import bcrypt_sha256
 from jose import JWTError, jwt
 
@@ -24,6 +25,7 @@ from jose import JWTError, jwt
 class UserService:
     def __init__(self, db: Session):
         self.repository = UserRepository(db)
+        self.subscription_repo = SubscriptionRepository(db)
         self.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
         self.algorithm = "HS256"
         self.access_token_exp_minutes = 60
@@ -197,21 +199,10 @@ class UserService:
 
     def _has_active_subscription(self, user_id: int) -> bool:
         """
-        Verifica si el usuario tiene una suscripción activa.
-        
-        Suscripción activa = planes Plata (2) u Oro (3)
-        Suscripción inactiva = plan Bronce/Gratuito (1)
-        
-        En una integración real, esto llamaría a:
-        GET /api/v1/suscripciones/verificacion/{id_cliente}
+        Verifica si el usuario tiene una suscripción activa consultando la tabla de suscripciones.
         """
-        user = self.repository.get_user_by_id(user_id)
-        if not user:
-            return False
-        
-        # Planes activos: Plata (2) y Oro (3)
-        # Plan gratuito: Bronce (1)
-        return user.suscripcion > 1
+        active = self.subscription_repo.get_active_by_client(user_id)
+        return active is not None
 
     def delete_user(self, user_id: int, payload: DeleteRequest) -> DeleteResponse:
         user = self.repository.get_user_by_id(user_id)
