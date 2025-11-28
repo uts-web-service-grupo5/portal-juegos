@@ -32,6 +32,7 @@ class SubscriptionRepository:
         fecha_vencimiento,
         monto_pagado: float | None,
         id_transaccion: int | None,
+        auto_renovacion: bool = True,
     ) -> SubscriptionDB:
         record = SubscriptionDB(
             id_cliente=client_id,
@@ -41,6 +42,7 @@ class SubscriptionRepository:
             fecha_vencimiento=fecha_vencimiento,
             monto_pagado=monto_pagado,
             id_transaccion=id_transaccion,
+            auto_renovacion=auto_renovacion,
         )
         self.db.add(record)
         self.db.commit()
