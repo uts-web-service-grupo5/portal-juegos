@@ -8,7 +8,6 @@ class UserBase(BaseModel):
     nickname: str = Field(..., min_length=1)
     correo: EmailStr
     fecha_nac: date
-    suscripcion: int = Field(..., ge=1)
 
 
 class UserCreate(UserBase):

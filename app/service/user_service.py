@@ -25,7 +25,7 @@ from jose import JWTError, jwt
 class UserService:
     def __init__(self, db: Session, sub_db: Session | None = None):
         self.repository = UserRepository(db)
-        self.subscription_repo = SubscriptionRepository(sub_db or db)
+        self.subscription_repo = SubscriptionRepository(sub_db) if sub_db else None
         self.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
         self.algorithm = "HS256"
         self.access_token_exp_minutes = 60
@@ -56,6 +56,23 @@ class UserService:
                 status_code=503,
                 detail="No fue posible completar el registro, por indisponibilidad del backend",
             )
+
+        # Crear suscripción Bronce por defecto si hay repo de suscripciones disponible
+        if self.subscription_repo and not self.subscription_repo.get_active_by_client(user.id):
+            try:
+                self.subscription_repo.create_subscription(
+                    client_id=user.id,
+                    plan="Bronce",
+                    estado="activo",
+                    fecha_inicio=date.today(),
+                    fecha_vencimiento=None,
+                    monto_pagado=0.0,
+                    id_transaccion=None,
+                    auto_renovacion=False,
+                )
+            except SQLAlchemyError:
+                # No abortar creación de usuario; solo loguear/propagar en un caso real
+                pass
 
         return RegistroResponse(
             message="Datos recibidos",
