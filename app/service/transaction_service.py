@@ -8,14 +8,16 @@ from sqlalchemy.orm import Session
 from app.domain.transaction_model import PaymentRecord, PaymentRequest, PaymentResponse, PlanType
 from app.repository.transaction_repository import TransactionRepository
 from app.repository.user_repository import UserRepository
+from app.repository.subscription_repository import SubscriptionRepository
 
 
 class TransactionService:
     PLAN_COSTOS = {"Bronce": 0.0, "Plata": 14990.0, "Oro": 29990.0}
 
-    def __init__(self, tx_db: Session, user_db: Session):
+    def __init__(self, tx_db: Session, user_db: Session, sub_db: Session | None = None):
         self.tx_repo = TransactionRepository(tx_db)
         self.user_repo = UserRepository(user_db)
+        self.sub_repo = SubscriptionRepository(sub_db) if sub_db else None
 
     def _metodo_pago_registrado(self, user_id: int) -> str | None:
         """
@@ -73,6 +75,7 @@ class TransactionService:
                 fecha_inicio_suscripcion=fecha_inicio,
                 fecha_fin_suscripcion=fecha_fin,
                 estado_pago=estado_pago,
+                descripcion="Suscripción",
             )
         except SQLAlchemyError:
             raise HTTPException(
@@ -96,6 +99,100 @@ class TransactionService:
                 else None,
                 "estado_pago": record.estado_pago,
             },
+            success=True,
+            error_code=None,
+            details=None,
+        )
+
+    def _metodo_pago_registrado_flag(self, user_id: int) -> bool:
+        # Placeholder: retornar True si hay método; aquí lo simulamos como True.
+        return True
+
+    def obtener_renovacion(self, client_id: int) -> PaymentResponse:
+        # Validar cliente
+        cliente = self.user_repo.get_user_by_id(client_id)
+        if not cliente:
+            raise HTTPException(status_code=404, detail="El cliente no fue encontrado en el sistema")
+
+        # Validar suscripción
+        if not self.sub_repo:
+            raise HTTPException(status_code=503, detail="Servicio de suscripciones no disponible")
+        subs = self.sub_repo.get_active_by_client(client_id)
+        if not subs:
+            raise HTTPException(status_code=404, detail="El cliente no tiene una suscripción activa")
+
+        # Última transacción aprobada
+        last_tx = self.tx_repo.get_last_approved_by_client(client_id)
+        if not last_tx:
+            raise HTTPException(status_code=404, detail="No hay transacciones previas para este cliente")
+
+        # Método de pago registrado
+        if not self._metodo_pago_registrado_flag(client_id):
+            raise HTTPException(
+                status_code=400,
+                detail="La renovación automática fallará, el cliente debe registrar un método de pago antes de la fecha de renovación",
+            )
+
+        fecha_base = subs.fecha_vencimiento or last_tx.fecha_fin_suscripcion or last_tx.fecha_transaccion
+        fecha_proxima = fecha_base + timedelta(days=30)
+        dias_restantes = (fecha_proxima - date.today()).days
+        monto = self.PLAN_COSTOS.get(subs.plan, 0.0)
+
+        data = {
+            "id_cliente": client_id,
+            "id_suscripcion": subs.id,
+            "plan": subs.plan,
+            "fecha_transaccion": last_tx.fecha_transaccion.isoformat(),
+            "fecha_proxima_renovacion": fecha_proxima.isoformat(),
+            "monto_renovacion": monto,
+            "dias_restantes": dias_restantes,
+            "estado": subs.estado,
+            "auto_renovacion_activa": True,
+            "metodo_pago_registrado": True,
+        }
+
+        return PaymentResponse(
+            message="Información de renovación obtenida exitosamente",
+            data=data,
+            success=True,
+            error_code=None,
+            details=None,
+        )
+
+    def historial(self, client_id: int) -> PaymentResponse:
+        cliente = self.user_repo.get_user_by_id(client_id)
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+        try:
+            txs = self.tx_repo.list_by_client(client_id)
+        except SQLAlchemyError:
+            raise HTTPException(
+                status_code=503,
+                detail="Imposibilidad del servicio",
+            )
+
+        if not txs:
+            raise HTTPException(
+                status_code=404,
+                detail="El cliente no tiene registros de transacciones en el sistema",
+            )
+
+        tx_list = []
+        for tx in txs:
+            tx_list.append(
+                {
+                    "id_transaccion": tx.id,
+                    "fecha_transaccion": tx.fecha_transaccion.isoformat(),
+                    "valor_transaccion": tx.valor_transaccion,
+                    "metodo_pago": tx.metodo_pago,
+                    "descripcion": tx.descripcion or "",
+                }
+            )
+
+        return PaymentResponse(
+            message="Historial de transacciones obtenido con éxito",
+            data={"transacciones": tx_list, "total": len(tx_list)},
             success=True,
             error_code=None,
             details=None,

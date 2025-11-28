@@ -21,6 +21,18 @@ class PaymentResponse(BaseModel):
     details: dict | None = None
 
 
+class HistorialRequest(BaseModel):
+    id_cliente: int = Field(..., gt=0)
+
+
+class HistorialResponse(BaseModel):
+    message: str
+    data: dict
+    success: bool
+    error_code: int | None = None
+    details: dict | None = None
+
+
 class PaymentRecord(BaseModel):
     id_transaccion: int = Field(alias="id")
     id_cliente: int
