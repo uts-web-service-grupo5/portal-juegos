@@ -18,6 +18,7 @@ class TransactionRepository:
         fecha_inicio_suscripcion,
         fecha_fin_suscripcion,
         estado_pago: str,
+        descripcion: str | None = None,
     ) -> TransactionDB:
         record = TransactionDB(
             id_cliente=id_cliente,
@@ -28,8 +29,25 @@ class TransactionRepository:
             fecha_inicio_suscripcion=fecha_inicio_suscripcion,
             fecha_fin_suscripcion=fecha_fin_suscripcion,
             estado_pago=estado_pago,
+            descripcion=descripcion,
         )
         self.db.add(record)
         self.db.commit()
         self.db.refresh(record)
         return record
+
+    def get_last_approved_by_client(self, client_id: int) -> TransactionDB | None:
+        return (
+            self.db.query(TransactionDB)
+            .filter(TransactionDB.id_cliente == client_id, TransactionDB.estado_pago == "APROBADO")
+            .order_by(TransactionDB.fecha_transaccion.desc(), TransactionDB.id.desc())
+            .first()
+        )
+
+    def list_by_client(self, client_id: int) -> list[TransactionDB]:
+        return (
+            self.db.query(TransactionDB)
+            .filter(TransactionDB.id_cliente == client_id)
+            .order_by(TransactionDB.fecha_transaccion.desc(), TransactionDB.id.desc())
+            .all()
+        )
