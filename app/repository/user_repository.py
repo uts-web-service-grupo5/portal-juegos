@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.database import UserDB
+from app.user_database import UserDB
 from app.domain.user_model import UserCreate
 
 
@@ -15,7 +15,6 @@ class UserRepository:
             correo=user_data.correo,
             contrasenia=hashed_password,
             fecha_nac=user_data.fecha_nac,
-            suscripcion=user_data.suscripcion,
         )
         self.db.add(user)
         self.db.commit()

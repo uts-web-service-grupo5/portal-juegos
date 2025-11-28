@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.transaction_database import SessionLocal as TxSessionLocal
+from app.user_database import SessionLocal as UserSessionLocal
 from app.domain.transaction_model import PaymentRequest, PaymentResponse
 from app.service.transaction_service import TransactionService
 from app.service.user_service import UserService
@@ -10,8 +11,16 @@ from app.service.user_service import UserService
 router = APIRouter(prefix="/api/v1/transacciones", tags=["Transacciones"])
 
 
-def get_db():
-    db = SessionLocal()
+def get_tx_db():
+    db = TxSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_user_db():
+    db = UserSessionLocal()
     try:
         yield db
     finally:
@@ -27,14 +36,15 @@ def get_db():
 def procesar_pago(
     payload: PaymentRequest,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    tx_db: Session = Depends(get_tx_db),
+    user_db: Session = Depends(get_user_db),
 ):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
 
-    user_service = UserService(db)
-    tx_service = TransactionService(db)
+    user_service = UserService(user_db)
+    tx_service = TransactionService(tx_db, user_db)
     try:
         token_user_id = user_service.decode_token(token)
         if token_user_id != payload.id_cliente:

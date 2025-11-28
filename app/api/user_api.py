@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.user_database import SessionLocal as UserSessionLocal
+from app.subscription_database import SessionLocal as SubSessionLocal
 from app.domain.user_model import (
     DeleteRequest,
     DeleteResponse,
@@ -15,13 +16,20 @@ from app.domain.user_model import (
     UserRecord,
 )
 from app.service.user_service import UserService
-from fastapi import Header
 
 router = APIRouter(prefix="/api/v1/cliente", tags=["Clientes"])
 
 
-def get_db():
-    db = SessionLocal()
+def get_user_db():
+    db = UserSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_sub_db():
+    db = SubSessionLocal()
     try:
         yield db
     finally:
@@ -34,9 +42,9 @@ def get_db():
     status_code=status.HTTP_201_CREATED,
     summary="Registrar cliente",
 )
-def registrar_cliente(user: UserCreate, db: Session = Depends(get_db)):
+def registrar_cliente(user: UserCreate, user_db: Session = Depends(get_user_db), sub_db: Session = Depends(get_sub_db)):
     """Registra un nuevo cliente."""
-    service = UserService(db)
+    service = UserService(user_db, sub_db)
     try:
         return service.create_user(user)
     except HTTPException as exc:
@@ -60,9 +68,9 @@ def registrar_cliente(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}", response_model=UserRecord, summary="Obtener cliente")
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(user_id: int, user_db: Session = Depends(get_user_db), sub_db: Session = Depends(get_sub_db)):
     """Obtiene un cliente por ID."""
-    service = UserService(db)
+    service = UserService(user_db, sub_db)
     return service.get_user(user_id)
 
 
@@ -72,9 +80,13 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Inicio de sesión de cliente",
 )
-def iniciar_sesion(credentials: LoginRequest, db: Session = Depends(get_db)):
+def iniciar_sesion(
+    credentials: LoginRequest,
+    user_db: Session = Depends(get_user_db),
+    sub_db: Session = Depends(get_sub_db),
+):
     """Inicia sesión de cliente."""
-    service = UserService(db)
+    service = UserService(user_db, sub_db)
     try:
         return service.login(credentials)
     except HTTPException as exc:
@@ -100,10 +112,11 @@ def iniciar_sesion(credentials: LoginRequest, db: Session = Depends(get_db)):
 def actualizar_cliente(
     payload: UpdateRequest,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    user_db: Session = Depends(get_user_db),
+    sub_db: Session = Depends(get_sub_db),
 ):
     """Actualiza datos de cliente."""
-    service = UserService(db)
+    service = UserService(user_db, sub_db)
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
@@ -143,10 +156,11 @@ def actualizar_cliente(
 def eliminar_cliente(
     payload: DeleteRequest,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    user_db: Session = Depends(get_user_db),
+    sub_db: Session = Depends(get_sub_db),
 ):
     """Elimina la cuenta si no tiene plan activo."""
-    service = UserService(db)
+    service = UserService(user_db, sub_db)
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()

@@ -23,9 +23,9 @@ from jose import JWTError, jwt
 
 
 class UserService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, sub_db: Session | None = None):
         self.repository = UserRepository(db)
-        self.subscription_repo = SubscriptionRepository(db)
+        self.subscription_repo = SubscriptionRepository(sub_db or db)
         self.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
         self.algorithm = "HS256"
         self.access_token_exp_minutes = 60
