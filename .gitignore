@@ -5,8 +5,7 @@ env/
 # Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
+
 
 app/main.py
 # IDEs
@@ -16,7 +15,6 @@ app/main.py
 # Bases de datos
 *.db
 *.sqlite3
-users.db
 
 # Variables de entorno
 .env
