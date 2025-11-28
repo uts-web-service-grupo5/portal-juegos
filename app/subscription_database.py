@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import Column, Date, Float, Integer, String, create_engine
+from sqlalchemy import Column, Date, Float, Integer, String, Boolean, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +24,9 @@ class SubscriptionDB(Base):
     monto_pagado = Column(Float, nullable=True)
     id_transaccion = Column(Integer, nullable=True)
     fecha_cancelacion = Column(Date, nullable=True)
+    plan_programado = Column(String, nullable=True)
+    fecha_cambio = Column(Date, nullable=True)
+    auto_renovacion = Column(Boolean, nullable=False, default=True)
 
 
 Base.metadata.create_all(bind=engine)

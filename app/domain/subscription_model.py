@@ -20,6 +20,20 @@ class SubscriptionAssignRequest(BaseModel):
     metodo_pago: MetodoPago | None = None
 
 
+class ChangePlanRequest(BaseModel):
+    id_cliente: int = Field(..., gt=0)
+    plan_nuevo: PlanType
+    metodo_pago: MetodoPago | None = None
+
+
+class ChangePlanResponse(BaseModel):
+    message: str
+    data: dict
+    success: bool
+    error_code: int | None = None
+    details: dict | None = None
+
+
 class SubscriptionRecord(BaseModel):
     id_suscripcion: int
     id_cliente: int
@@ -56,3 +70,8 @@ class CancelSubscriptionResponse(BaseModel):
     success: bool
     error_code: int | None = None
     details: dict | None = None
+
+
+class CancelSubscriptionRequest(BaseModel):
+    id_cliente: int = Field(..., gt=0)
+    contrasena: str = Field(..., min_length=6)
