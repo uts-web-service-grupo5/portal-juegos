@@ -19,11 +19,10 @@ from app.service.transaction_service import TransactionService
 class SubscriptionService:
     PLAN_COSTOS = {"Plata": 14.99, "Oro": 29.99, "Bronce": 0.0}
 
-    def __init__(self, db: Session):
-        self.db = db
-        self.sub_repo = SubscriptionRepository(db)
-        self.user_repo = UserRepository(db)
-        self.tx_service = TransactionService(db)
+    def __init__(self, sub_db: Session, user_db: Session, tx_service: TransactionService | None = None):
+        self.sub_repo = SubscriptionRepository(sub_db)
+        self.user_repo = UserRepository(user_db)
+        self.tx_service = tx_service
 
     def _plan_valido(self, plan: str) -> bool:
         return plan in {"Bronce", "Plata", "Oro"}
@@ -35,6 +34,8 @@ class SubscriptionService:
 
     def _procesar_pago(self, client_id: int, plan: str) -> tuple[int, float]:
         """Integra con el servicio de transacciones para procesar pago real."""
+        if not self.tx_service:
+            raise HTTPException(status_code=503, detail="Servicio de transacciones no disponible")
         resp = self.tx_service.procesar_pago(
             PaymentRequest(id_cliente=client_id, plan=plan, id_suscripcion=None)
         )

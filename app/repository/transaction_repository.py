@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.database import TransactionDB
+from app.transaction_database import TransactionDB
 
 
 class TransactionRepository:

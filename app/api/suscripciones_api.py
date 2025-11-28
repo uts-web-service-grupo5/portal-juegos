@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.subscription_database import SessionLocal as SubSessionLocal
+from app.user_database import SessionLocal as UserSessionLocal
+from app.transaction_database import SessionLocal as TxSessionLocal
 from app.domain.subscription_model import (
     SubscriptionAssignRequest,
     SubscriptionResponse,
@@ -10,13 +12,30 @@ from app.domain.subscription_model import (
     CancelSubscriptionResponse,
 )
 from app.service.subscription_service import SubscriptionService
+from app.service.transaction_service import TransactionService
 from app.service.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/suscripciones", tags=["Suscripciones"])
 
 
-def get_db():
-    db = SessionLocal()
+def get_sub_db():
+    db = SubSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_user_db():
+    db = UserSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_tx_db():
+    db = TxSessionLocal()
     try:
         yield db
     finally:
@@ -32,14 +51,17 @@ def get_db():
 def asignar_suscripcion(
     payload: SubscriptionAssignRequest,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    sub_db: Session = Depends(get_sub_db),
+    user_db: Session = Depends(get_user_db),
+    tx_db: Session = Depends(get_tx_db),
 ):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
 
-    user_service = UserService(db)
-    sub_service = SubscriptionService(db)
+    user_service = UserService(user_db, sub_db)
+    tx_service = TransactionService(tx_db, user_db)
+    sub_service = SubscriptionService(sub_db, user_db, tx_service)
     try:
         token_user_id = user_service.decode_token(token)
         if token_user_id != payload.id_cliente:
@@ -87,14 +109,15 @@ def asignar_suscripcion(
 def cancelar_suscripcion(
     id_cliente: int,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    sub_db: Session = Depends(get_sub_db),
+    user_db: Session = Depends(get_user_db),
 ):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
 
-    user_service = UserService(db)
-    sub_service = SubscriptionService(db)
+    user_service = UserService(user_db, sub_db)
+    sub_service = SubscriptionService(sub_db, user_db)
     try:
         token_user_id = user_service.decode_token(token)
         if token_user_id != id_cliente:
@@ -135,14 +158,15 @@ def cancelar_suscripcion(
 def verificar_suscripcion(
     id_cliente: int,
     authorization: str | None = Header(default=None, convert_underscores=False),
-    db: Session = Depends(get_db),
+    sub_db: Session = Depends(get_sub_db),
+    user_db: Session = Depends(get_user_db),
 ):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
     token = authorization.removeprefix("Bearer ").strip()
 
-    user_service = UserService(db)
-    sub_service = SubscriptionService(db)
+    user_service = UserService(user_db, sub_db)
+    sub_service = SubscriptionService(sub_db, user_db)
     try:
         token_user_id = user_service.decode_token(token)
         if token_user_id != id_cliente:

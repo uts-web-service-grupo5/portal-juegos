@@ -13,10 +13,9 @@ from app.repository.user_repository import UserRepository
 class TransactionService:
     PLAN_COSTOS = {"Bronce": 0.0, "Plata": 14990.0, "Oro": 29990.0}
 
-    def __init__(self, db: Session):
-        self.db = db
-        self.tx_repo = TransactionRepository(db)
-        self.user_repo = UserRepository(db)
+    def __init__(self, tx_db: Session, user_db: Session):
+        self.tx_repo = TransactionRepository(tx_db)
+        self.user_repo = UserRepository(user_db)
 
     def _metodo_pago_registrado(self, user_id: int) -> str | None:
         """

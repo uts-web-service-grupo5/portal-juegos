@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.database import SubscriptionDB
+from app.subscription_database import SubscriptionDB
 
 
 class SubscriptionRepository:
