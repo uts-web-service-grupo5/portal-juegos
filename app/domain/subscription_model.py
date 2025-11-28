@@ -35,7 +35,7 @@ class ChangePlanResponse(BaseModel):
 
 
 class SubscriptionRecord(BaseModel):
-    id_suscripcion: int
+    id_suscripcion: int = Field(alias="id")
     id_cliente: int
     plan: PlanType
     estado: str
@@ -46,6 +46,7 @@ class SubscriptionRecord(BaseModel):
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 class SubscriptionResponse(BaseModel):
