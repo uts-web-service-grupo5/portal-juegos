@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Security
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.subscription_database import SessionLocal as SubSessionLocal
 from app.user_database import SessionLocal as UserSessionLocal
@@ -19,6 +20,7 @@ from app.service.transaction_service import TransactionService
 from app.service.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/suscripciones", tags=["Suscripciones"])
+auth_scheme = HTTPBearer(scheme_name="BearerAuth")
 
 
 def get_sub_db():
@@ -53,20 +55,16 @@ def get_tx_db():
 )
 def asignar_suscripcion(
     payload: SubscriptionAssignRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     sub_db: Session = Depends(get_sub_db),
     user_db: Session = Depends(get_user_db),
     tx_db: Session = Depends(get_tx_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     tx_service = TransactionService(tx_db, user_db)
     sub_service = SubscriptionService(sub_db, user_db, tx_service)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return sub_service.asignar(payload)
@@ -111,18 +109,14 @@ def asignar_suscripcion(
 )
 def cancelar_suscripcion(
     payload: CancelSubscriptionRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     sub_db: Session = Depends(get_sub_db),
     user_db: Session = Depends(get_user_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     sub_service = SubscriptionService(sub_db, user_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return sub_service.cancelar_pago(payload)
@@ -193,20 +187,16 @@ def cancelar_suscripcion(
 )
 def cambio_plan(
     payload: ChangePlanRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     sub_db: Session = Depends(get_sub_db),
     user_db: Session = Depends(get_user_db),
     tx_db: Session = Depends(get_tx_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     tx_service = TransactionService(tx_db, user_db)
     sub_service = SubscriptionService(sub_db, user_db, tx_service)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return sub_service.cambio_plan(payload)
@@ -258,18 +248,14 @@ def cambio_plan(
 )
 def verificar_suscripcion(
     id_cliente: int,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     sub_db: Session = Depends(get_sub_db),
     user_db: Session = Depends(get_user_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     sub_service = SubscriptionService(sub_db, user_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return sub_service.verificar(id_cliente)

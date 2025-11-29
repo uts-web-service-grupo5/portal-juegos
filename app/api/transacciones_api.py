@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Security
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.transaction_database import SessionLocal as TxSessionLocal
 from app.user_database import SessionLocal as UserSessionLocal
@@ -16,6 +17,7 @@ from app.service.user_service import UserService
 from app.service.payment_method_service import PaymentMethodService
 
 router = APIRouter(prefix="/api/v1/transacciones", tags=["Transacciones"])
+auth_scheme = HTTPBearer(scheme_name="BearerAuth")
 
 
 def get_tx_db():
@@ -50,18 +52,14 @@ def get_sub_db():
 )
 def procesar_pago(
     payload: PaymentRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     tx_db: Session = Depends(get_tx_db),
     user_db: Session = Depends(get_user_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db)
     tx_service = TransactionService(tx_db, user_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return tx_service.procesar_pago(payload)
@@ -94,19 +92,15 @@ def procesar_pago(
 )
 def obtener_renovacion(
     id_cliente: int,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     tx_db: Session = Depends(get_tx_db),
     user_db: Session = Depends(get_user_db),
     sub_db: Session = Depends(get_sub_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db)
     tx_service = TransactionService(tx_db, user_db, sub_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return tx_service.obtener_renovacion(id_cliente)
@@ -150,18 +144,14 @@ def obtener_renovacion(
 )
 def guardar_metodo_pago(
     payload: PaymentMethodRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     tx_db: Session = Depends(get_tx_db),
     user_db: Session = Depends(get_user_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db)
     pm_service = PaymentMethodService(tx_db, user_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return pm_service.save_method(payload)
@@ -205,18 +195,14 @@ def guardar_metodo_pago(
 )
 def historial_transacciones(
     payload: HistorialRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     tx_db: Session = Depends(get_tx_db),
     user_db: Session = Depends(get_user_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db)
     tx_service = TransactionService(tx_db, user_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return tx_service.historial(payload.id_cliente)
