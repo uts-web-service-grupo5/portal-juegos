@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Security
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.catalog_database import SessionLocal as CatSessionLocal
 from app.user_database import SessionLocal as UserSessionLocal
@@ -15,6 +16,7 @@ from app.service.catalog_service import CatalogService
 from app.service.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/catalogo", tags=["Catalogo"])
+auth_scheme = HTTPBearer(scheme_name="BearerAuth")
 
 
 def get_cat_db():
@@ -49,19 +51,15 @@ def get_sub_db():
 )
 def acceso_catalogo(
     payload: CatalogAccessRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     cat_db: Session = Depends(get_cat_db),
     user_db: Session = Depends(get_user_db),
     sub_db: Session = Depends(get_sub_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     catalog_service = CatalogService(cat_db, user_db, sub_db)
     try:
-        token_user_id = user_service.decode_token(token)
+        token_user_id = user_service.decode_token(credentials.credentials)
         if token_user_id != payload.id_cliente:
             raise HTTPException(status_code=403, detail="Operación no permitida para este usuario")
         return catalog_service.acceso_catalogo(payload)
@@ -120,20 +118,16 @@ def acceso_catalogo(
 )
 def informacion_juego(
     payload: GameInfoRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     cat_db: Session = Depends(get_cat_db),
     user_db: Session = Depends(get_user_db),
     sub_db: Session = Depends(get_sub_db),
 ):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
-
     user_service = UserService(user_db, sub_db)
     catalog_service = CatalogService(cat_db, user_db, sub_db)
     try:
         # Solo validamos token, no se necesita id_cliente aquí, pero seguimos el mismo esquema.
-        user_service.decode_token(token)
+        user_service.decode_token(credentials.credentials)
         return catalog_service.informacion_juego(payload)
     except HTTPException as exc:
         descripcion = exc.detail if isinstance(exc.detail, str) else str(exc.detail)

@@ -124,12 +124,6 @@ class UserService:
             if existing and existing.id != user.id:
                 raise HTTPException(status_code=400, detail="Nickname en uso por otro usuario")
             updates["nickname"] = payload.nickname
-        if payload.correo is not None:
-            # validar correo único
-            existing_email = self.repository.get_user_by_email(payload.correo)
-            if existing_email and existing_email.id != user.id:
-                raise HTTPException(status_code=400, detail="Correo en uso por otro usuario")
-            updates["correo"] = payload.correo
 
         if not updates:
             raise HTTPException(status_code=400, detail="No se especificaron campos para actualizar")
