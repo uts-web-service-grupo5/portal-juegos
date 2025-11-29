@@ -20,13 +20,14 @@ from app.repository.user_repository import UserRepository
 from app.repository.subscription_repository import SubscriptionRepository
 from passlib.hash import bcrypt_sha256
 from jose import JWTError, jwt
+from app.config.settings import settings
 
 
 class UserService:
     def __init__(self, db: Session, sub_db: Session | None = None):
         self.repository = UserRepository(db)
         self.subscription_repo = SubscriptionRepository(sub_db) if sub_db else None
-        self.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
+        self.secret_key = settings.secret_key
         self.algorithm = "HS256"
         self.access_token_exp_minutes = 60
 
