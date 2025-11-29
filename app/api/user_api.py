@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Security
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.user_database import SessionLocal as UserSessionLocal
 from app.subscription_database import SessionLocal as SubSessionLocal
@@ -18,6 +19,7 @@ from app.domain.user_model import (
 from app.service.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/cliente", tags=["Clientes"])
+auth_scheme = HTTPBearer(scheme_name="BearerAuth")
 
 
 def get_user_db():
@@ -111,15 +113,13 @@ def iniciar_sesion(
 )
 def actualizar_cliente(
     payload: UpdateRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     user_db: Session = Depends(get_user_db),
     sub_db: Session = Depends(get_sub_db),
 ):
     """Actualiza datos de cliente."""
     service = UserService(user_db, sub_db)
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
+    token = credentials.credentials
     try:
         user_id = service.decode_token(token)
         return service.update_user(user_id, payload)
@@ -155,15 +155,13 @@ def actualizar_cliente(
 )
 def eliminar_cliente(
     payload: DeleteRequest,
-    authorization: str | None = Header(default=None, convert_underscores=False),
+    credentials: HTTPAuthorizationCredentials = Security(auth_scheme),
     user_db: Session = Depends(get_user_db),
     sub_db: Session = Depends(get_sub_db),
 ):
     """Elimina la cuenta si no tiene plan activo."""
     service = UserService(user_db, sub_db)
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token requerido")
-    token = authorization.removeprefix("Bearer ").strip()
+    token = credentials.credentials
     try:
         user_id = service.decode_token(token)
         return service.delete_user(user_id, payload)
